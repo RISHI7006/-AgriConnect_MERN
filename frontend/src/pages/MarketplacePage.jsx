@@ -12,6 +12,7 @@ export const MarketplacePage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [retrying, setRetrying] = useState(false);
+  const [seeding, setSeeding] = useState(false);
 
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [selectedCategories, setSelectedCategories] = useState(
@@ -46,7 +47,7 @@ export const MarketplacePage = () => {
       const params = {
         search: overrides.search !== undefined ? overrides.search : search,
         category: (overrides.selectedCategories !== undefined ? overrides.selectedCategories : selectedCategories).join(','),
-        maxPrice: overrides.priceMax !== undefined ? overrides.priceMax : priceMax,
+        maxPrice: (overrides.priceMax !== undefined ? overrides.priceMax : priceMax) < 1500 ? (overrides.priceMax !== undefined ? overrides.priceMax : priceMax) : '',
         state: (overrides.selectedState !== undefined ? overrides.selectedState : selectedState) === 'All India' ? '' : (overrides.selectedState !== undefined ? overrides.selectedState : selectedState),
         inStock: (overrides.inStockOnly !== undefined ? overrides.inStockOnly : inStockOnly) ? 'true' : '',
         sort: overrides.sortBy !== undefined ? overrides.sortBy : sortBy
@@ -104,6 +105,21 @@ export const MarketplacePage = () => {
   const handleRetry = () => {
     setRetrying(true);
     fetchFilteredProducts();
+  };
+
+  const handleQuickSeed = async () => {
+    setSeeding(true);
+    try {
+      await api.seedDemoData();
+      await fetchFilteredProducts({
+        search: '', selectedCategories: [], priceMax: 1500,
+        selectedState: 'All India', inStockOnly: false, sortBy: 'latest'
+      });
+    } catch (e) {
+      console.error('Seed error:', e);
+    } finally {
+      setSeeding(false);
+    }
   };
 
   return (
@@ -327,12 +343,21 @@ export const MarketplacePage = () => {
                 <p className="text-xs text-gray-500">
                   {isHindi ? 'कृपया फ़िल्टर हटाकर दोबारा देखें।' : 'Try resetting filters or adjusting your price range.'}
                 </p>
-                <button
-                  onClick={handleResetFilters}
-                  className="px-4 py-2 bg-emerald-700 text-white rounded-xl text-xs font-semibold"
-                >
-                  {t('reset') || 'Reset Filters'}
-                </button>
+                <div className="flex flex-wrap justify-center items-center gap-3 pt-2">
+                  <button
+                    onClick={handleResetFilters}
+                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-750 font-semibold rounded-xl text-xs transition-colors"
+                  >
+                    {t('reset') || 'Reset Filters'}
+                  </button>
+                  <button
+                    onClick={handleQuickSeed}
+                    disabled={seeding}
+                    className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors disabled:opacity-60 flex items-center gap-1.5"
+                  >
+                    <span>{seeding ? (isHindi ? 'लोड हो रहा है...' : 'Seeding...') : (isHindi ? '🌾 सभी 26 फसलें रीलोड करें' : '🌾 Load All 26 Crops')}</span>
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

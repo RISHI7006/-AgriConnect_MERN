@@ -12,7 +12,8 @@ const mlRoutes = require('./routes/mlRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/agriconnect';
+const rawMongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/agriconnect';
+const MONGODB_URI = rawMongoUri.trim().replace(/^["']|["']$/g, '');
 
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
@@ -104,6 +105,21 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Quick seed endpoint - accessible directly via browser or button
+const seedDatabase = require('./seed/seedData');
+app.get('/api/seed', async (req, res) => {
+  try {
+    const result = await seedDatabase(false);
+    res.json({
+      success: true,
+      message: 'Successfully seeded 26 Indian crops, farmers, and demo accounts!',
+      result
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Self-ping to keep Render free tier alive (every 14 minutes)
 if (process.env.NODE_ENV === 'production' && process.env.RENDER_EXTERNAL_URL) {
   const selfPingUrl = `${process.env.RENDER_EXTERNAL_URL}/api/health`;
@@ -169,19 +185,16 @@ mongoose.connect(MONGODB_URI, mongoOptions)
   .then(async () => {
     console.log('Successfully connected to MongoDB:', MONGODB_URI);
 
-    // Auto-seed if DB is empty (happens after Atlas cluster resume)
+    // Auto-seed if DB is empty (happens after Atlas cluster resume or fresh deployment)
     try {
       const Product = require('./models/Product');
       const count = await Product.countDocuments();
       if (count === 0) {
-        console.log('[AutoSeed] Database is empty — running seed...');
-        const { exec } = require('child_process');
-        exec('node seed/seedData.js', { cwd: __dirname }, (err, stdout, stderr) => {
-          if (err) console.error('[AutoSeed] Error:', err.message);
-          else console.log('[AutoSeed] Done:', stdout.trim());
-        });
+        console.log('[AutoSeed] Database is empty — auto-seeding crops and demo users...');
+        await seedDatabase(false);
+        console.log('[AutoSeed] 26 crops seeded successfully.');
       } else {
-        console.log(`[AutoSeed] DB has ${count} products — skipping seed.`);
+        console.log(`[AutoSeed] DB has ${count} products — ready.`);
       }
     } catch (seedErr) {
       console.warn('[AutoSeed] Check failed:', seedErr.message);

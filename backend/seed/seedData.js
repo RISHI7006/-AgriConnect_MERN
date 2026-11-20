@@ -8,10 +8,13 @@ const Order = require('../models/Order');
 const Negotiation = require('../models/Negotiation');
 const Review = require('../models/Review');
 
-const seedDatabase = async () => {
+const seedDatabase = async (exitOnComplete = true) => {
   try {
-    const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/agriconnect';
-    await mongoose.connect(mongoUri);
+    if (mongoose.connection.readyState !== 1) {
+      const rawUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/agriconnect';
+      const mongoUri = rawUri.trim().replace(/^["']|["']$/g, '');
+      await mongoose.connect(mongoUri);
+    }
     console.log('Connected to MongoDB for re-seeding 26 crops & Indian personas...');
 
     await User.deleteMany({});
@@ -774,11 +777,21 @@ const seedDatabase = async () => {
     ]);
 
     console.log('Seeded successfully with 26 Indian crops, verified Indian farmers and buyers!');
-    process.exit(0);
+    if (exitOnComplete) {
+      process.exit(0);
+    }
+    return { success: true, count: 26 };
   } catch (error) {
     console.error('Seed error:', error);
-    process.exit(1);
+    if (exitOnComplete) {
+      process.exit(1);
+    }
+    throw error;
   }
 };
 
-seedDatabase();
+if (require.main === module) {
+  seedDatabase(true);
+}
+
+module.exports = seedDatabase;

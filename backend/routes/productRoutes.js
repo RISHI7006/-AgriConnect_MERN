@@ -31,11 +31,15 @@ router.get('/', async (req, res) => {
       query['location.state'] = { $regex: state, $options: 'i' };
     }
 
-    if (minPrice || maxPrice) {
-      query.pricePerKg = {};
-      if (minPrice) query.pricePerKg.$gte = Number(minPrice);
-      // Only apply maxPrice if it's provided AND less than 1500 (avoid blocking high-value items)
-      if (maxPrice && Number(maxPrice) < 1500) query.pricePerKg.$lte = Number(maxPrice);
+    const priceFilter = {};
+    if (minPrice && !isNaN(Number(minPrice))) {
+      priceFilter.$gte = Number(minPrice);
+    }
+    if (maxPrice && !isNaN(Number(maxPrice)) && Number(maxPrice) < 1500) {
+      priceFilter.$lte = Number(maxPrice);
+    }
+    if (Object.keys(priceFilter).length > 0) {
+      query.pricePerKg = priceFilter;
     }
 
     if (inStock === 'true') {

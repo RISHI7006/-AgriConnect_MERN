@@ -53,6 +53,11 @@ export const api = {
     return res.json();
   },
 
+  async seedDemoData() {
+    const res = await fetch(`${API_BASE}/seed`);
+    return res.json();
+  },
+
   async updateProfile(profileData) {
     const res = await fetch(`${API_BASE}/auth/profile`, {
       method: 'PUT',
