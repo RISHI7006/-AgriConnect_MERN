@@ -104,6 +104,19 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Self-ping to keep Render free tier alive (every 14 minutes)
+if (process.env.NODE_ENV === 'production' && process.env.RENDER_EXTERNAL_URL) {
+  const selfPingUrl = `${process.env.RENDER_EXTERNAL_URL}/api/health`;
+  setInterval(() => {
+    const http = require('https');
+    http.get(selfPingUrl, (res) => {
+      console.log(`[KeepAlive] Self-ping → ${res.statusCode}`);
+    }).on('error', (err) => {
+      console.warn('[KeepAlive] Self-ping error:', err.message);
+    });
+  }, 14 * 60 * 1000); // 14 minutes
+}
+
 // Production Frontend Static Assets Serving
 const fs = require('fs');
 const distPath = path.join(__dirname, '../frontend/dist');
@@ -124,18 +137,73 @@ app.use((err, req, res, next) => {
   });
 });
 
+// MongoDB connection options with retry logic
+const mongoOptions = {
+  serverSelectionTimeoutMS: 10000,
+  socketTimeoutMS: 45000,
+  maxPoolSize: 10,
+  retryWrites: true,
+  retryReads: true,
+};
+
+// Auto-reconnect handler
+mongoose.connection.on('disconnected', () => {
+  console.warn('[MongoDB] Disconnected. Attempting reconnect in 5s...');
+  setTimeout(() => {
+    mongoose.connect(MONGODB_URI, mongoOptions).catch(err =>
+      console.error('[MongoDB] Reconnect failed:', err.message)
+    );
+  }, 5000);
+});
+
+mongoose.connection.on('reconnected', () => {
+  console.log('[MongoDB] Reconnected successfully.');
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('[MongoDB] Connection error:', err.message);
+});
+
 // Connect to MongoDB & Start Server
-mongoose.connect(MONGODB_URI)
-  .then(() => {
+mongoose.connect(MONGODB_URI, mongoOptions)
+  .then(async () => {
     console.log('Successfully connected to MongoDB:', MONGODB_URI);
+
+    // Auto-seed if DB is empty (happens after Atlas cluster resume)
+    try {
+      const Product = require('./models/Product');
+      const count = await Product.countDocuments();
+      if (count === 0) {
+        console.log('[AutoSeed] Database is empty — running seed...');
+        const { exec } = require('child_process');
+        exec('node seed/seedData.js', { cwd: __dirname }, (err, stdout, stderr) => {
+          if (err) console.error('[AutoSeed] Error:', err.message);
+          else console.log('[AutoSeed] Done:', stdout.trim());
+        });
+      } else {
+        console.log(`[AutoSeed] DB has ${count} products — skipping seed.`);
+      }
+    } catch (seedErr) {
+      console.warn('[AutoSeed] Check failed:', seedErr.message);
+    }
+
     app.listen(PORT, () => {
       console.log(`AgriConnect Server running at http://localhost:${PORT}`);
     });
   })
   .catch((err) => {
     console.error('MongoDB connection error:', err.message);
-    // Still run server to allow frontend to load with informative error
+    // Still start server so frontend can serve and show error
     app.listen(PORT, () => {
-      console.log(`AgriConnect Server running on port ${PORT} (Mongo offline mode)`);
+      console.log(`AgriConnect Server running on port ${PORT} (DB offline — retrying in background)`);
     });
+    // Keep retrying connection in background
+    const retryConnect = () => {
+      setTimeout(() => {
+        mongoose.connect(MONGODB_URI, mongoOptions)
+          .then(() => console.log('[MongoDB] Reconnected after startup failure.'))
+          .catch(() => retryConnect());
+      }, 10000);
+    };
+    retryConnect();
   });
