@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
@@ -18,6 +18,7 @@ import {
   Camera,
   Check,
   X,
+  Menu,
   User as UserIcon,
   MapPin,
   Phone
@@ -56,6 +57,11 @@ export const Navbar = () => {
   const navigate = useNavigate();
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
 
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState('');
@@ -321,10 +327,122 @@ export const Navbar = () => {
               </div>
             )}
 
+            {/* Mobile & Tablet Hamburger Toggle (screens < xl) */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="xl:hidden p-2 rounded-xl text-gray-700 hover:text-emerald-700 hover:bg-emerald-50 transition-colors focus:outline-none"
+              aria-label="Toggle mobile navigation menu"
+            >
+              {mobileMenuOpen ? (
+                <X className="w-6 h-6 text-emerald-800" />
+              ) : (
+                <Menu className="w-6 h-6" />
+              )}
+            </button>
+
           </div>
 
         </div>
       </div>
+
+      {/* Mobile & Tablet Drawer Menu */}
+      {mobileMenuOpen && (
+        <div className="xl:hidden bg-white border-t border-gray-100 shadow-xl px-4 py-4 space-y-4 animate-in slide-in-from-top-2 duration-150 max-h-[85vh] overflow-y-auto">
+          
+          {/* User profile card on mobile if logged in */}
+          {user && (
+            <div className="flex items-center justify-between p-3 bg-emerald-50/70 rounded-2xl border border-emerald-100">
+              <div className="flex items-center space-x-3">
+                <img
+                  src={sanitizeAvatar(user?.avatar, user?.role)}
+                  alt={user.name}
+                  className="w-11 h-11 rounded-full object-cover ring-2 ring-emerald-600/30"
+                />
+                <div>
+                  <p className="font-extrabold text-sm text-gray-900">{user.name}</p>
+                  <p className="text-xs text-emerald-700 font-semibold capitalize">
+                    {user.role} • {user.location?.city || 'India'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleOpenPhotoModal}
+                className="p-2 rounded-xl bg-white border border-emerald-200 text-emerald-800 hover:bg-emerald-100 text-xs font-bold"
+                title="Change Photo"
+              >
+                <Camera className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Navigation Links */}
+          <div className="space-y-1">
+            {navLinks.map((link) => {
+              const isActive = location.pathname === link.path;
+              return (
+                <Link
+                  key={link.path}
+                  to={link.path}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                    isActive
+                      ? 'bg-emerald-700 text-white shadow-sm'
+                      : 'text-gray-700 hover:bg-emerald-50 hover:text-emerald-800'
+                  }`}
+                >
+                  <span>{link.name}</span>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Auth options if not logged in */}
+          {!user && (
+            <div className="pt-2 border-t border-gray-100 flex flex-col gap-2">
+              <Link
+                to="/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full text-center py-2.5 rounded-xl border border-gray-200 text-gray-800 font-bold text-xs hover:bg-gray-50"
+              >
+                🔐 {isHindi ? 'लॉगिन करें' : 'Sign In'}
+              </Link>
+              <div className="grid grid-cols-2 gap-2">
+                <Link
+                  to="/register?role=farmer"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-center py-2.5 rounded-xl bg-emerald-100 text-emerald-800 font-bold text-xs hover:bg-emerald-200"
+                >
+                  🌾 {isHindi ? 'किसान रजिस्टर' : 'Farmer Reg'}
+                </Link>
+                <Link
+                  to="/register?role=buyer"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-center py-2.5 rounded-xl bg-blue-700 text-white font-bold text-xs hover:bg-blue-800 shadow-sm"
+                >
+                  🛒 {isHindi ? 'खरीदार रजिस्टर' : 'Buyer Reg'}
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {/* Logout if logged in */}
+          {user && (
+            <div className="pt-2 border-t border-gray-100">
+              <button
+                onClick={() => {
+                  logout();
+                  setMobileMenuOpen(false);
+                  navigate('/login');
+                }}
+                className="w-full flex items-center justify-center space-x-2 py-2.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-xl text-xs font-bold transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>{t('navLogout')}</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Direct Navbar Photo Change Modal */}
       {photoModalOpen && (

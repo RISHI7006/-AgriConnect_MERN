@@ -13,6 +13,7 @@ export const MarketplacePage = () => {
   const [error, setError] = useState(null);
   const [retrying, setRetrying] = useState(false);
   const [seeding, setSeeding] = useState(false);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [selectedCategories, setSelectedCategories] = useState(
@@ -85,6 +86,7 @@ export const MarketplacePage = () => {
 
   const handleApplyFilters = (e) => {
     if (e) e.preventDefault();
+    setMobileFiltersOpen(false);
     fetchFilteredProducts();
   };
 
@@ -161,11 +163,32 @@ export const MarketplacePage = () => {
           </div>
         </div>
 
+        {/* Mobile & Tablet Filter Drawer Toggle (< lg) */}
+        <div className="lg:hidden mb-4">
+          <button
+            onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
+            className="w-full py-3 px-4 bg-white border border-gray-200/90 rounded-2xl font-bold text-xs text-gray-800 flex items-center justify-between shadow-xs hover:border-emerald-500 transition-colors"
+          >
+            <div className="flex items-center space-x-2">
+              <SlidersHorizontal className="w-4 h-4 text-emerald-700" />
+              <span>{isHindi ? 'फ़िल्टर और श्रेणियां' : 'Filter by Category & Price'}</span>
+              {(selectedCategories.length > 0 || selectedState !== 'All India' || inStockOnly) && (
+                <span className="bg-emerald-700 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">
+                  {selectedCategories.length + (selectedState !== 'All India' ? 1 : 0) + (inStockOnly ? 1 : 0)}
+                </span>
+              )}
+            </div>
+            <span className="text-emerald-700 font-extrabold text-xs">
+              {mobileFiltersOpen ? (isHindi ? 'छिपाएं ▲' : 'Hide Filters ▲') : (isHindi ? 'फ़िल्टर खोलें ▼' : 'Show Filters ▼')}
+            </span>
+          </button>
+        </div>
+
         {/* Layout: Filters Sidebar + Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           
           {/* Left Sidebar Filters */}
-          <aside className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm h-fit space-y-6">
+          <aside className={`bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm h-fit space-y-6 ${mobileFiltersOpen ? 'block' : 'hidden lg:block'}`}>
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
               <h3 className="font-bold text-gray-900 text-base flex items-center space-x-2">
                 <SlidersHorizontal className="w-4 h-4 text-emerald-700" />
